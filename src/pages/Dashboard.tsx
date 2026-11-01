@@ -16,6 +16,7 @@ import ActivityChart from "../components/ActivityChart";
 import LanguageChart from "../components/LanguageChart";
 import RecentCommits from "../components/RecentCommits";
 import GitHubExplorer from "../components/GitHubExplorer";
+import GitHubContributionHeatmap from "../components/GitHubContributionHeatmap";
 import type { DashboardRange } from "../components/Header";
 
 import {
@@ -127,7 +128,9 @@ export default function Dashboard({
             Developer workspace
           </div>
 
-          <h1 className={`mt-3 text-2xl font-bold tracking-tight sm:text-3xl ${colors.heading}`}>
+          <h1
+            className={`mt-3 text-2xl font-bold tracking-tight sm:text-3xl ${colors.heading}`}
+          >
             Welcome back, Mohit
           </h1>
 
@@ -188,22 +191,34 @@ export default function Dashboard({
                     <p className={`text-sm font-medium ${colors.text}`}>
                       {stat.title}
                     </p>
-                    <p className={`mt-3 text-3xl font-bold tracking-tight ${colors.heading}`}>
+                    <p
+                      className={`mt-3 text-3xl font-bold tracking-tight ${colors.heading}`}
+                    >
                       {stat.value}
                     </p>
                   </div>
 
-                  <div className={`flex size-11 shrink-0 items-center justify-center rounded-xl transition-transform duration-200 group-hover:scale-105 ${stat.iconBg}`}>
-                    <Icon size={21} strokeWidth={1.8} className={stat.iconColor} />
+                  <div
+                    className={`flex size-11 shrink-0 items-center justify-center rounded-xl transition-transform duration-200 group-hover:scale-105 ${stat.iconBg}`}
+                  >
+                    <Icon
+                      size={21}
+                      strokeWidth={1.8}
+                      className={stat.iconColor}
+                    />
                   </div>
                 </div>
 
-                <div className={`mt-5 flex items-center gap-2 border-t pt-4 ${colors.divider}`}>
-                  <span className={`inline-flex items-center gap-0.5 rounded-md px-1.5 py-1 text-xs font-semibold ${
-                    stat.positive
-                      ? "bg-emerald-500/10 text-emerald-500"
-                      : "bg-rose-500/10 text-rose-500"
-                  }`}>
+                <div
+                  className={`mt-5 flex items-center gap-2 border-t pt-4 ${colors.divider}`}
+                >
+                  <span
+                    className={`inline-flex items-center gap-0.5 rounded-md px-1.5 py-1 text-xs font-semibold ${
+                      stat.positive
+                        ? "bg-emerald-500/10 text-emerald-500"
+                        : "bg-rose-500/10 text-rose-500"
+                    }`}
+                  >
                     <TrendIcon size={14} />
                     {stat.change}
                   </span>
@@ -233,7 +248,9 @@ export default function Dashboard({
             </div>
           </div>
 
-          <span className={`rounded-lg px-3 py-1.5 text-xs font-medium ${colors.rangeBadge}`}>
+          <span
+            className={`rounded-lg px-3 py-1.5 text-xs font-medium ${colors.rangeBadge}`}
+          >
             {selectedRange} view
           </span>
         </div>
@@ -246,7 +263,9 @@ export default function Dashboard({
           <LanguageChart data={languageUsage} isDark={isDark} />
         </div>
 
-        <article className={`min-w-0 rounded-2xl border p-5 sm:p-6 ${colors.card}`}>
+        <article
+          className={`min-w-0 rounded-2xl border p-5 sm:p-6 ${colors.card}`}
+        >
           <div className="flex items-start justify-between gap-3">
             <div>
               <div className="flex items-center gap-2">
@@ -260,11 +279,13 @@ export default function Dashboard({
               </p>
             </div>
 
-            <span className={`shrink-0 rounded-full px-2.5 py-1 text-xs font-medium ${
-              isDark
-                ? "bg-emerald-500/10 text-emerald-400"
-                : "bg-emerald-50 text-emerald-700"
-            }`}>
+            <span
+              className={`shrink-0 rounded-full px-2.5 py-1 text-xs font-medium ${
+                isDark
+                  ? "bg-emerald-500/10 text-emerald-400"
+                  : "bg-emerald-50 text-emerald-700"
+              }`}
+            >
               3 of 4 healthy
             </span>
           </div>
@@ -281,16 +302,22 @@ export default function Dashboard({
                   }`}
                 >
                   <div className="flex min-w-0 items-center gap-3">
-                    <span className={`size-2 shrink-0 rounded-full ${
-                      healthy ? "bg-emerald-500" : "bg-amber-500"
-                    }`} />
-                    <span className={`truncate text-sm ${colors.repositoryText}`}>
+                    <span
+                      className={`size-2 shrink-0 rounded-full ${
+                        healthy ? "bg-emerald-500" : "bg-amber-500"
+                      }`}
+                    />
+                    <span
+                      className={`truncate text-sm ${colors.repositoryText}`}
+                    >
                       {repository.name}
                     </span>
                   </div>
-                  <span className={`shrink-0 text-xs font-medium ${
-                    healthy ? "text-emerald-500" : "text-amber-500"
-                  }`}>
+                  <span
+                    className={`shrink-0 text-xs font-medium ${
+                      healthy ? "text-emerald-500" : "text-amber-500"
+                    }`}
+                  >
                     {repository.status}
                   </span>
                 </div>
@@ -298,7 +325,9 @@ export default function Dashboard({
             })}
           </div>
 
-          <div className={`mt-5 flex items-center gap-2 border-t pt-4 text-xs ${colors.divider} ${colors.text}`}>
+          <div
+            className={`mt-5 flex items-center gap-2 border-t pt-4 text-xs ${colors.divider} ${colors.text}`}
+          >
             <Clock3 size={14} />
             <span>Illustrative repository status</span>
             <ArrowRight size={14} className="ml-auto" />
@@ -312,6 +341,10 @@ export default function Dashboard({
 
       <section className="min-w-0">
         <GitHubExplorer isDark={isDark} />
+      </section>
+
+      <section className="min-w-0">
+        <GitHubContributionHeatmap isDark={isDark} />
       </section>
     </div>
   );

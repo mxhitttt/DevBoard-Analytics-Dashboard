@@ -1,7 +1,6 @@
 
 import { useCallback, useEffect, useState, type FormEvent } from "react";
 import {
-
   Search,
   GitBranch,
   GitCommitHorizontal,
@@ -71,6 +70,7 @@ interface GitHubApiError {
   message?: string;
 }
 
+const API_BASE = "https://api.github.com";
 const PAGE_SIZE = 6;
 
 export default function GitHubExplorer({
@@ -129,10 +129,12 @@ export default function GitHubExplorer({
   };
 
   const requestGitHub = useCallback(
-    async <T,>(url: string): Promise<T> => {
+    async <T,>(url: string, signal?: AbortSignal): Promise<T> => {
       const response = await fetch(url, {
+        signal,
         headers: {
           Accept: "application/vnd.github+json",
+          "X-GitHub-Api-Version": "2022-11-28",
         },
       });
 
@@ -141,12 +143,9 @@ export default function GitHubExplorer({
 
         try {
           const body = (await response.json()) as GitHubApiError;
-
-          if (body.message) {
-            message = body.message;
-          }
+          if (body.message) message = body.message;
         } catch {
-          // Keep the default error if the response is not JSON.
+          // Keep the default error.
         }
 
         if (response.status === 404) {
@@ -167,7 +166,7 @@ export default function GitHubExplorer({
   const loadRepositories = useCallback(
     async (login: string, nextPage: number) => {
       const data = await requestGitHub<GitHubRepository[]>(
-        `https://api.github.com/users/${encodeURIComponent(login)}/repos?sort=updated&per_page=${PAGE_SIZE}&page=${nextPage}`,
+        `${API_BASE}/users/${encodeURIComponent(login)}/repos?sort=updated&per_page=${PAGE_SIZE}&page=${nextPage}`,
       );
 
       setRepositories((current) =>
@@ -201,12 +200,11 @@ export default function GitHubExplorer({
 
       try {
         const userProfile = await requestGitHub<GitHubProfile>(
-          `https://api.github.com/users/${encodeURIComponent(cleanLogin)}`,
+          `${API_BASE}/users/${encodeURIComponent(cleanLogin)}`,
         );
 
         setProfile(userProfile);
         setUsername(cleanLogin);
-
         await loadRepositories(cleanLogin, 1);
       } catch (err) {
         setProfile(null);
@@ -214,7 +212,7 @@ export default function GitHubExplorer({
         setError(
           err instanceof Error
             ? err.message
-            : "Unable to load GitHub profile. Please try again.",
+            : "Unable to load GitHub profile.",
         );
       } finally {
         setLoadingUser(false);
@@ -223,68 +221,52 @@ export default function GitHubExplorer({
     [loadRepositories, requestGitHub],
   );
 
-  useEffect(() => {
-    if (!selectedRepo) return;
+ 
 
-    const controller = new AbortController();
+useEffect(() => {
+  if (selectedRepo === null) {
+    setRepoCommits([]);
+    setCommitError("");
+    setLoadingCommits(false);
+    return;
+  }
 
-    const loadCommits = async () => {
-      setLoadingCommits(true);
-      setCommitError("");
-      setRepoCommits([]);
+  const repoFullName = selectedRepo.full_name;
+  const controller = new AbortController();
 
-      try {
-        const response = await fetch(
-          `https://api.github.com/repos/${selectedRepo.full_name}/commits?per_page=5`,
-          {
-            signal: controller.signal,
-            headers: {
-              Accept: "application/vnd.github+json",
-            },
-          },
-        );
+  async function loadCommits() {
+    setLoadingCommits(true);
+    setCommitError("");
+    setRepoCommits([]);
 
-        if (!response.ok) {
-          let message = `Unable to load commits (${response.status}).`;
+    try {
+      const commits = await requestGitHub<GitHubCommit[]>(
+        `${API_BASE}/repos/${repoFullName}/commits?per_page=5`,
+        controller.signal,
+      );
 
-          try {
-            const body = (await response.json()) as GitHubApiError;
-            if (body.message) message = body.message;
-          } catch {
-            // Keep the default error.
-          }
-
-          if (response.status === 403 || response.status === 429) {
-            message =
-              "GitHub API rate limit reached. Please try again later.";
-          }
-
-          throw new Error(message);
-        }
-
-        const commits = (await response.json()) as GitHubCommit[];
-        setRepoCommits(commits);
-      } catch (err) {
-        if (err instanceof Error && err.name === "AbortError") {
-          return;
-        }
-
-        setCommitError(
-          err instanceof Error
-            ? err.message
-            : "Unable to load repository commits.",
-        );
-      } finally {
-        if (!controller.signal.aborted) {
-          setLoadingCommits(false);
-        }
+      setRepoCommits(commits);
+    } catch (err) {
+      if (err instanceof Error && err.name === "AbortError") {
+        return;
       }
-    };
 
-    void loadCommits();
+      setCommitError(
+        err instanceof Error
+          ? err.message
+          : "Unable to load repository commits.",
+      );
+    } finally {
+      if (!controller.signal.aborted) {
+        setLoadingCommits(false);
+      }
+    }
+  }
 
-    return () => controller.abort();
-  }, [selectedRepo]);
+  void loadCommits();
+
+  return () => controller.abort();
+}, [selectedRepo, requestGitHub]);
 
   const handleSearch = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -312,17 +294,14 @@ export default function GitHubExplorer({
 
   return (
     <section className="space-y-5">
-      <div
-        className={`overflow-hidden rounded-2xl border ${theme.card}`}
-      >
+      <div className={`overflow-hidden rounded-2xl border ${theme.card}`}>
         <div
           className={`flex items-center justify-between gap-3 border-b p-5 sm:p-6 ${theme.border}`}
         >
           <div className="flex min-w-0 items-center gap-3">
             <div className="flex size-11 shrink-0 items-center justify-center rounded-xl bg-violet-500/10 text-violet-500">
-             <GitBranch size={23} />
+              <GitBranch size={23} />
             </div>
-
             <div className="min-w-0">
               <h2 className={`text-lg font-semibold ${theme.heading}`}>
                 GitHub Explorer
@@ -340,26 +319,19 @@ export default function GitHubExplorer({
             aria-expanded={expanded}
             className={`flex size-9 shrink-0 items-center justify-center rounded-lg border ${theme.border} ${theme.button}`}
           >
-            {expanded ? (
-              <ChevronUp size={18} />
-            ) : (
-              <ChevronDown size={18} />
-            )}
+            {expanded ? <ChevronUp size={18} /> : <ChevronDown size={18} />}
           </button>
         </div>
 
         {expanded && (
           <div className="space-y-6 p-5 sm:p-6">
-            <form
-              onSubmit={handleSearch}
-              className="flex flex-col gap-3 sm:flex-row"
-            >
+            <form onSubmit={handleSearch} className="flex flex-col gap-3 sm:flex-row">
               <label className="relative min-w-0 flex-1">
                 <span className="sr-only">GitHub username</span>
-                <GitBranch
-  size={30}
-  className={`mx-auto ${theme.text}`}
-/>
+                <Search
+                  size={17}
+                  className={`pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 ${theme.text}`}
+                />
                 <input
                   type="text"
                   value={username}
@@ -396,10 +368,7 @@ export default function GitHubExplorer({
 
             {loadingUser && !profile && (
               <div className={`flex items-center justify-center gap-3 py-12 text-sm ${theme.text}`}>
-                <LoaderCircle
-                  size={20}
-                  className="animate-spin text-violet-500"
-                />
+                <LoaderCircle size={20} className="animate-spin text-violet-500" />
                 Loading GitHub profile and repositories...
               </div>
             )}
@@ -413,7 +382,6 @@ export default function GitHubExplorer({
                       alt={`${profile.login}'s avatar`}
                       className="size-20 shrink-0 rounded-2xl border border-slate-500/10 object-cover"
                     />
-
                     <div className="min-w-0 flex-1">
                       <div className="flex flex-wrap items-center gap-2">
                         <h3 className={`text-xl font-bold ${theme.heading}`}>
@@ -423,7 +391,6 @@ export default function GitHubExplorer({
                           @{profile.login}
                         </span>
                       </div>
-
                       <p className={`mt-2 text-sm leading-6 ${theme.text}`}>
                         {profile.bio || "No public bio provided."}
                       </p>
@@ -435,7 +402,6 @@ export default function GitHubExplorer({
                             {profile.location}
                           </span>
                         )}
-
                         {profile.blog && (
                           <a
                             href={
@@ -468,34 +434,16 @@ export default function GitHubExplorer({
 
                   <div className={`mt-6 grid grid-cols-1 gap-3 border-t pt-5 sm:grid-cols-3 ${theme.border}`}>
                     {[
-                      {
-                        label: "Repositories",
-                        value: profile.public_repos,
-                        icon: GitBranch,
-                      },
-                      {
-                        label: "Followers",
-                        value: profile.followers,
-                        icon: Users,
-                      },
-                      {
-                        label: "Following",
-                        value: profile.following,
-                        icon: Users,
-                      },
+                      { label: "Repositories", value: profile.public_repos, icon: GitBranch },
+                      { label: "Followers", value: profile.followers, icon: Users },
+                      { label: "Following", value: profile.following, icon: Users },
                     ].map((stat) => {
                       const Icon = stat.icon;
-
                       return (
-                        <div
-                          key={stat.label}
-                          className={`rounded-xl p-4 ${theme.soft}`}
-                        >
+                        <div key={stat.label} className={`rounded-xl p-4 ${theme.soft}`}>
                           <div className="flex items-center gap-2">
                             <Icon size={16} className="text-violet-500" />
-                            <span className={`text-xs ${theme.text}`}>
-                              {stat.label}
-                            </span>
+                            <span className={`text-xs ${theme.text}`}>{stat.label}</span>
                           </div>
                           <p className={`mt-2 text-2xl font-bold ${theme.heading}`}>
                             {stat.value.toLocaleString("en-IN")}
@@ -516,7 +464,6 @@ export default function GitHubExplorer({
                         Select a repository to inspect recent commits.
                       </p>
                     </div>
-
                     <span className={`rounded-lg px-3 py-1.5 text-xs ${theme.soft}`}>
                       {repositories.length} loaded
                     </span>
@@ -524,10 +471,7 @@ export default function GitHubExplorer({
 
                   {repositories.length === 0 ? (
                     <div className={`rounded-xl border border-dashed p-8 text-center ${theme.border}`}>
-                      <GitBranch
-                        size={25}
-                        className={`mx-auto ${theme.text}`}
-                      />
+                      <GitBranch size={25} className={`mx-auto ${theme.text}`} />
                       <p className={`mt-3 text-sm ${theme.text}`}>
                         No public repositories found.
                       </p>
@@ -536,7 +480,6 @@ export default function GitHubExplorer({
                     <div className="grid min-w-0 grid-cols-1 gap-4 lg:grid-cols-2">
                       {repositories.map((repo) => {
                         const isSelected = selectedRepo?.id === repo.id;
-
                         return (
                           <article
                             key={repo.id}
@@ -548,10 +491,7 @@ export default function GitHubExplorer({
                           >
                             <div className="flex items-start justify-between gap-3">
                               <div className="flex min-w-0 items-start gap-2.5">
-                                <Code2
-                                  size={18}
-                                  className="mt-0.5 shrink-0 text-violet-500"
-                                />
+                                <Code2 size={18} className="mt-0.5 shrink-0 text-violet-500" />
                                 <div className="min-w-0">
                                   <h4 className={`break-words text-sm font-semibold ${theme.heading}`}>
                                     {repo.name}
@@ -563,7 +503,6 @@ export default function GitHubExplorer({
                                   )}
                                 </div>
                               </div>
-
                               <a
                                 href={repo.html_url}
                                 target="_blank"
@@ -586,12 +525,10 @@ export default function GitHubExplorer({
                                   {repo.language}
                                 </span>
                               )}
-
                               <span className={`inline-flex items-center gap-1 text-xs ${theme.text}`}>
                                 <Star size={13} />
                                 {repo.stargazers_count}
                               </span>
-
                               <span className={`inline-flex items-center gap-1 text-xs ${theme.text}`}>
                                 <GitFork size={13} />
                                 {repo.forks_count}
@@ -629,15 +566,8 @@ export default function GitHubExplorer({
                         disabled={loadingMore}
                         className={`inline-flex items-center gap-2 rounded-xl border px-5 py-3 text-sm font-medium transition disabled:cursor-not-allowed disabled:opacity-60 ${theme.border} ${theme.heading} ${theme.button}`}
                       >
-                        {loadingMore && (
-                          <LoaderCircle
-                            size={16}
-                            className="animate-spin"
-                          />
-                        )}
-                        {loadingMore
-                          ? "Loading..."
-                          : "Load more repositories"}
+                        {loadingMore && <LoaderCircle size={16} className="animate-spin" />}
+                        {loadingMore ? "Loading..." : "Load more repositories"}
                       </button>
                     </div>
                   )}
@@ -654,7 +584,6 @@ export default function GitHubExplorer({
                           {selectedRepo.full_name}
                         </p>
                       </div>
-
                       <a
                         href={`${selectedRepo.html_url}/commits/${encodeURIComponent(selectedRepo.default_branch)}`}
                         target="_blank"
@@ -668,17 +597,11 @@ export default function GitHubExplorer({
 
                     {loadingCommits ? (
                       <div className={`flex items-center justify-center gap-2 p-10 text-sm ${theme.text}`}>
-                        <LoaderCircle
-                          size={18}
-                          className="animate-spin"
-                        />
+                        <LoaderCircle size={18} className="animate-spin" />
                         Loading commits...
                       </div>
                     ) : commitError ? (
-                      <div
-                        role="alert"
-                        className="flex items-start gap-2 p-5 text-sm text-rose-500"
-                      >
+                      <div role="alert" className="flex items-start gap-2 p-5 text-sm text-rose-500">
                         <AlertCircle size={17} className="mt-0.5 shrink-0" />
                         {commitError}
                       </div>
@@ -693,7 +616,6 @@ export default function GitHubExplorer({
                             item.author?.login ||
                             item.commit.author?.name ||
                             "Unknown author";
-
                           return (
                             <div
                               key={item.sha}
@@ -711,7 +633,6 @@ export default function GitHubExplorer({
                                     <GitBranch size={15} />
                                   </div>
                                 )}
-
                                 <div className="min-w-0">
                                   <a
                                     href={item.html_url}
@@ -719,18 +640,13 @@ export default function GitHubExplorer({
                                     rel="noreferrer"
                                     className={`line-clamp-2 break-words text-sm font-medium leading-5 hover:text-violet-500 ${theme.heading}`}
                                   >
-                                    {item.commit.message.split("\n")[0] ||
-                                      "Untitled commit"}
+                                    {item.commit.message.split("\n")[0] || "Untitled commit"}
                                   </a>
-
                                   <p className={`mt-1 break-all text-xs ${theme.text}`}>
-                                    {authorName}
-                                    {" · "}
-                                    {item.sha.slice(0, 7)}
+                                    {authorName} · {item.sha.slice(0, 7)}
                                   </p>
                                 </div>
                               </div>
-
                               <span className={`inline-flex shrink-0 items-center gap-1.5 text-xs ${theme.text}`}>
                                 <CalendarDays size={13} />
                                 {formatDate(item.commit.author?.date ?? null)}
@@ -750,10 +666,7 @@ export default function GitHubExplorer({
 
       {!profile && !loadingUser && !error && (
         <div className={`rounded-2xl border border-dashed p-8 text-center ${theme.border}`}>
-      <GitBranch
-  size={30}
-  className={`mx-auto ${theme.text}`}
-/>
+          <GitBranch size={30} className={`mx-auto ${theme.text}`} />
           <p className={`mt-3 text-sm font-medium ${theme.heading}`}>
             Explore GitHub repositories
           </p>
