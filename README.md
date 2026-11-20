@@ -99,6 +99,10 @@ src/
 
 ## Design Decisions
 
+
+
+
+
 - **Mock data first, API later.** The UI depends on typed interfaces, not on the data source, so swapping mock data for the GitHub API does not require touching components.
 - **Custom hooks for logic.** Filtering, sorting and pagination live in hooks, which keeps components focused on rendering.
 - **Mobile-first responsive design** so the dashboard stays usable on small screens.
