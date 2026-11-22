@@ -15,7 +15,7 @@ Built with React, TypeScript, Tailwind CSS, Recharts and Vite.
 Most dashboard templates and tutorials are built around **business data**: traffic, revenue, users. Developers and engineering teams rarely get a clean, visual view of **their own work**:
 
 - Commit activity is buried inside `git log` or a single repo's Insights tab.
-- Pull requests, issues and build status live in different places, so answering "how is the project doing this week?" means opening four tabs.
+- Pull requests, issues and build status live in different places, so answering "how is the project doing this week?" means opening four ta
 - Beginners building dashboards have almost no realistic, developer-themed examples to learn from.
 
 ## The Solution
